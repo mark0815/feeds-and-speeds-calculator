@@ -1,5 +1,5 @@
 from django.contrib import admin
-from feeds_and_speeds.models import Machine, MaterialClass, Material, Tool, CuttingSpeeds, ToolVendor
+from feeds_and_speeds.models import Machine, MaterialClass, Material, Tool, CuttingSpeeds, ToolVendor, CuttingRecipe
 
 # Register your models here.
 
@@ -27,9 +27,19 @@ class ToolVendorAdmin(admin.ModelAdmin):
 
 @admin.register(Tool)
 class ToolAdmin(admin.ModelAdmin):
-    list_display = ("vendor", "name", "flute_count", "diameter")
+    list_display = ("vendor", "name", "flute_count", "diameter", "flute_length", "fz_factor_at_one_ae", "vc_factor_at_one_ae")
 
 
 @admin.register(CuttingSpeeds)
 class CuttingSpeedsAdmin(admin.ModelAdmin):
-    list_display = ("material", "tool", "feed_per_tooth", "cutting_speed")
+    list_display = ("tool", "material", "feed_per_tooth", "cutting_speed")
+
+@admin.register(CuttingRecipe)
+class CuttingRecipeAdmin(admin.ModelAdmin):
+    list_display = ("cutter_data", "ae", "ap", "calculated_rpm", "calculated_feed")
+
+    def calculated_rpm(self, obj:CuttingRecipe):
+        return "%.0f" % obj.feeds_and_speeds()[0]
+    
+    def calculated_feed(self, obj:CuttingRecipe):
+        return "%.0f" % obj.feeds_and_speeds()[1]
