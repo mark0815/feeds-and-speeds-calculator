@@ -12,14 +12,9 @@
             "args": [
                 "runserver",
                 "0.0.0.0:8000",
-                "--noreload"
+                //"--noreload"
             ],
-            "django": true,
-            "serverReadyAction":{
-                "pattern": "https?:\\/\\/\\S+:([0-9]+)\\/?\\nQuit the server with CONTROL-C\\.",
-                "uriFormat": "http://localhost:%s/admin/",
-                "action": "openExternally"
-            }
+            "django": true
         }
     ]
 }

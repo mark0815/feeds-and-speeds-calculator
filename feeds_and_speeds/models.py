@@ -9,6 +9,7 @@ class Machine(models.Model):
         verbose_name="Max spindle RPM (1/min)")
     max_cutting_speed = models.PositiveIntegerField(
         verbose_name="max cutting speed (mm/min)")
+    active = models.BooleanField(verbose_name="Active Machine", default=False)
 
     def __str__(self):
         return "%s" % self.name
@@ -107,7 +108,7 @@ class CuttingRecipe(models.Model):
     def is_slotting_operation(self):
         return self.ae >= self.cutter_data.tool.diameter
 
-    def feeds_and_speeds(self, respect_machine_limits: bool = True, machine:Machine=None) -> (float, float):
+    def feeds_and_speeds(self, machine:Machine=None) -> (float, float):
         """ Calculate feeds and speeds based on cutter data for the given material """
         flute_count = self.cutter_data.tool.flute_count
         feed_per_tooth = self.fz_adjusted() 
@@ -115,7 +116,7 @@ class CuttingRecipe(models.Model):
         cutter_diameter = self.cutter_data.tool.diameter
         rpm_calculated = (cutting_speed * 1000) / (pi * cutter_diameter)
         feed_calculated = rpm_calculated * feed_per_tooth * flute_count
-        if respect_machine_limits:
+        if machine:
             rpm_max = min([rpm_calculated, machine.max_rpm])
             feed_at_rpm_max = rpm_max * feed_per_tooth * flute_count
             rpm_final = feed_at_rpm_max / (feed_per_tooth * flute_count)

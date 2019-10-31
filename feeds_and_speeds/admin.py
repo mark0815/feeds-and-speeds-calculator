@@ -6,7 +6,7 @@ from feeds_and_speeds.models import Machine, MaterialClass, Material, Tool, Cutt
 
 @admin.register(Machine)
 class MachineAdmin(admin.ModelAdmin):
-    list_display = ("name", "spindle_power", "max_rpm", "max_cutting_speed")
+    list_display = ("name", "spindle_power", "max_rpm", "max_cutting_speed", "active")
 
 
 @admin.register(MaterialClass)
@@ -28,6 +28,7 @@ class ToolVendorAdmin(admin.ModelAdmin):
 @admin.register(Tool)
 class ToolAdmin(admin.ModelAdmin):
     list_display = ("vendor", "name", "flute_count", "diameter", "flute_length", "fz_factor_at_one_ae", "vc_factor_at_one_ae")
+    list_filter = ("vendor",)
 
 
 @admin.register(CuttingSpeeds)
@@ -37,9 +38,17 @@ class CuttingSpeedsAdmin(admin.ModelAdmin):
 @admin.register(CuttingRecipe)
 class CuttingRecipeAdmin(admin.ModelAdmin):
     list_display = ("cutter_data", "ae", "ap", "calculated_rpm", "calculated_feed")
+    list_filter = ("cutter_data",)
 
     def calculated_rpm(self, obj:CuttingRecipe):
-        return "%.0f" % obj.feeds_and_speeds()[0]
+        machine = Machine.objects.filter(active=True).first()
+        return "%.0f" % obj.feeds_and_speeds(machine=machine)[0]
+
+    calculated_rpm.short_description = 'Calculated RPM (1/min)'
     
     def calculated_feed(self, obj:CuttingRecipe):
-        return "%.0f" % obj.feeds_and_speeds()[1]
+        machine = Machine.objects.filter(active=True).first()
+        return "%.0f" % obj.feeds_and_speeds(machine=machine)[1]
+
+    calculated_feed.short_description = 'Calculated Feed (mm/min)'
+    

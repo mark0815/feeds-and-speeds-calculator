@@ -25,7 +25,7 @@ class Command(BaseCommand):
 
         # Machine
         machine = Machine.objects.create(
-            name='Wabeco 1410 LF hs', spindle_power=2, max_rpm=7500, max_cutting_speed=600)
+            name='Wabeco 1410 LF hs', spindle_power=2, max_rpm=7500, max_cutting_speed=600, active=True)
 
         # Material Classes
         mc_aluminum = MaterialClass.objects.create(name='Aluminum')
