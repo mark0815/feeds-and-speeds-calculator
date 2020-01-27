@@ -1,4 +1,4 @@
-autopep8
-pyyaml
-django
-django-restframework
+#autopep8
+#pyyaml
+django==3.0.2
+#django-restframework
