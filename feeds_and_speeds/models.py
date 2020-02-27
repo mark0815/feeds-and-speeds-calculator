@@ -70,8 +70,10 @@ class Tool(models.Model):
     flute_count = models.PositiveIntegerField(verbose_name="Flute count")
     flute_length = models.FloatField(verbose_name='Flute length (mm) (max ap)')
     diameter = models.FloatField(verbose_name="Diameter (mm)")
-    fz_factor_at_one_ae = models.FloatField(verbose_name="Fz factor at 1 Ae", default=1.0)
-    vc_factor_at_one_ae = models.FloatField(verbose_name="Vc factor at 1 Ae", default=1.0)
+    fz_factor_at_one_ae = models.FloatField(
+        verbose_name="Fz factor at 1 Ae", default=1.0)
+    vc_factor_at_one_ae = models.FloatField(
+        verbose_name="Vc factor at 1 Ae", default=1.0)
     description = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -108,10 +110,10 @@ class CuttingRecipe(models.Model):
     def is_slotting_operation(self):
         return self.ae >= self.cutter_data.tool.diameter
 
-    def feeds_and_speeds(self, machine:Machine=None) -> (float, float):
+    def feeds_and_speeds(self, machine: Machine = None) -> (float, float):
         """ Calculate feeds and speeds based on cutter data for the given material """
         flute_count = self.cutter_data.tool.flute_count
-        feed_per_tooth = self.fz_adjusted() 
+        feed_per_tooth = self.fz_adjusted()
         cutting_speed = self.vc_adjusted()
         cutter_diameter = self.cutter_data.tool.diameter
         rpm_calculated = (cutting_speed * 1000) / (pi * cutter_diameter)
@@ -123,18 +125,18 @@ class CuttingRecipe(models.Model):
             return rpm_final, feed_at_rpm_max
         else:
             return rpm_calculated, feed_calculated
-    
+
     def fz_adjusted(self):
         """ Adjust fz by the factor stored at the tool """
         tool = self.cutter_data.tool
-        ae_factor = min([1,(self.ae/tool.diameter)])
+        ae_factor = min([1, (self.ae/tool.diameter)])
         fz_factor = 1 - ((1 - tool.fz_factor_at_one_ae) * ae_factor)
         return self.cutter_data.feed_per_tooth * fz_factor
-    
+
     def vc_adjusted(self):
         """ Adjust vc by the factor stored at the tool """
         tool = self.cutter_data.tool
-        ae_factor = min([1,(self.ae/tool.diameter)])
+        ae_factor = min([1, (self.ae/tool.diameter)])
         vc_factor = 1 - ((1 - tool.vc_factor_at_one_ae) * ae_factor)
         return self.cutter_data.cutting_speed * vc_factor
 
