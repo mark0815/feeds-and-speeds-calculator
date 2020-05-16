@@ -1,4 +1,4 @@
 #autopep8
 #pyyaml
 django
-#django-restframework
+djangorestframework
