@@ -1,1 +1,112 @@
-FFFF
+{% load i18n %}
+<html>
+
+<head>
+    <title>{% trans "Calculator" %}</title>
+    <script src="https://d3js.org/d3.v5.js"></script>
+</head>
+
+<body>
+    <h1>{% trans "Calculator" %}</h1>
+
+    <select id="machineSelectButton">
+        <option value="-">-</option>
+    </select>
+    <br />
+    <select id="materialSelectButton">
+        <option value="-">-</option>
+    </select>
+    <br />
+    <select id="toolSelectButton">
+        <option value="-">-</option>
+    </select>
+
+    <hr />
+
+    <span id="selectedCuttonSpeeds"></span>
+
+    <hr />
+
+    <div id='vis-container'></div>
+
+    <script type="text/javascript">
+        var selectedMachine;
+        var selectedTool;
+        var selectedMaterial;
+        var selectedCuttingSpeed;
+
+        d3.json("/api/machine/").then((data) => {
+            d3.select("#machineSelectButton")
+                .selectAll('options')
+                .data(data)
+                .enter()
+                .append('option')
+                .text(function (d) { return d.name; })
+                .attr("value", function (d) { return d.id; })
+        });
+        d3.select("#machineSelectButton").on("change", function () {
+            selectedMachineId = d3.select(this).property('value')
+            d3.json("/api/machine/" + selectedMachineId).then((data) => {
+                selectedMachine = data;
+            });
+        })
+
+
+        d3.json("/api/material/").then((data) => {
+            d3.select("#materialSelectButton")
+                .selectAll('options')
+                .data(data)
+                .enter()
+                .append('option')
+                .text(function (d) { return d.name; })
+                .attr("value", function (d) { return d.id; })
+        });
+        d3.json("/api/tool/").then((data) => {
+            d3.select("#toolSelectButton")
+                .selectAll('options')
+                .data(data)
+                .enter()
+                .append('option')
+                .text(function (d) { return d.name; })
+                .attr("value", function (d) { return d.id; })
+        });
+
+        var updateDisplay = function() {
+            lala = "Feed per tooth:" + selectedCuttingSpeed['feed_per_tooth'] + " Cutting speed:" + selectedCuttingSpeed['cutting_speed']
+            d3.select("#selectedCuttonSpeeds").html(lala);
+        }
+
+        var loadCuttingSpeeds = function () {
+            var selectedMaterialId = d3.select("#materialSelectButton").property("value");
+            var selectedToolId = d3.select("#toolSelectButton").property("value");
+            if (selectedMaterialId == '-' || selectedToolId == '-') {
+                return;
+            }
+            d3.json("/api/material/" + selectedMaterialId).then((data) => {
+                selectedMaterial = data;
+            });
+            d3.json("/api/tool/" + selectedToolId).then((data) => {
+                selectedTool = data;
+            });
+            d3.json("/api/cutting_speed/?tool=" + selectedToolId + "&material=" + selectedMaterialId).then((cutting_speeds) => {
+                selectedCuttingSpeed = cutting_speeds[0];
+                updateDisplay();
+            });
+        }
+
+        d3.select("#materialSelectButton").on("change", function (d) {
+            loadCuttingSpeeds();
+        });
+        d3.select("#toolSelectButton").on("change", function (d) {
+            loadCuttingSpeeds();
+        });
+
+
+
+
+
+
+    </script>
+</body>
+
+</html>

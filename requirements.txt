@@ -2,3 +2,4 @@
 #pyyaml
 django
 djangorestframework
+django-webpack-loader

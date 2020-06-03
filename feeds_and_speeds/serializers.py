@@ -4,29 +4,29 @@ from rest_framework import serializers
 class MachineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Machine
-        fields = ['name', 'spindle_power', 'max_rpm', 'max_cutting_speed']
+        fields = ['id', 'name', 'spindle_power', 'max_rpm', 'max_cutting_speed']
 
 class ToolVendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = ToolVendor
-        fields = ['name']
+        fields = ['id', 'name']
 
 class ToolSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tool
-        fields = ['vendor', 'name', 'flute_count', 'flute_length', 'diameter', 'fz_factor_at_one_ae', 'vc_factor_at_one_ae', 'description']
+        fields = ['id', 'vendor', 'name', 'flute_count', 'flute_length', 'diameter', 'fz_factor_at_one_ae', 'vc_factor_at_one_ae', 'description']
 
 class MaterialClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaterialClass
-        fields = ['name']
+        fields = ['id', 'name']
 
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
-        fields = ['material_class', 'name', 'kc_1_1', 'mc']
+        fields = ['id', 'material_class', 'name', 'kc_1_1', 'mc']
 
 class CuttingSpeedsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CuttingSpeeds
-        fields = ['tool', 'material', 'feed_per_tooth', 'cutting_speed']
+        fields = ['id', 'tool', 'material', 'feed_per_tooth', 'cutting_speed']
