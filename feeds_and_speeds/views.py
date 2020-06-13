@@ -2,8 +2,9 @@ from django.shortcuts import render
 from feeds_and_speeds.models import Machine, MaterialClass, Material, ToolVendor, Tool, CuttingSpeeds
 from django.core import serializers
 from django.http import HttpResponse
-from feeds_and_speeds.serializers import MachineSerializer, ToolSerializer, ToolVendorSerializer, MaterialClassSerializer, MaterialSerializer, CuttingSpeedsSerializer
+from feeds_and_speeds.serializers import MachineSerializer, ToolSerializer, ToolVendorSerializer, MaterialClassSerializer, MaterialSerializer, CuttingSpeedsSerializer, CuttingSpeedsCalculationData
 from rest_framework import viewsets, permissions
+from rest_framework import generics, mixins, views, response
 
 
 # Create your views here.
@@ -40,3 +41,11 @@ class CuttingSpeedsViewSet(viewsets.ModelViewSet):
     serializer_class = CuttingSpeedsSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['material', 'tool']
+
+class CuttingSpeedCalculationView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, cutting_speed_id):
+        csp = CuttingSpeeds.objects.get(id=cutting_speed_id)
+        serializer = CuttingSpeedsCalculationData(csp)
+        return response.Response(serializer.data)

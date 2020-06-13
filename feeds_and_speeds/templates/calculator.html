@@ -8,10 +8,15 @@
         /* 13. Basic Styling with CSS */
 
         /* Style the lines by removing the fill and applying a stroke */
-        .line {
+        .line_rpm {
             fill: none;
-            stroke: #ffab00;
             stroke-width: 3;
+            stroke: #ffab00;
+        }
+        .line_feed {
+            fill: none;
+            stroke-width: 3;
+            stroke: #ffabee;
         }
 
         .overlay {
@@ -20,9 +25,13 @@
         }
 
         /* Style the dots by assigning a fill and stroke */
-        .dot {
-            fill: #ffab00;
+        .dot_rpm {
             stroke: #fff;
+            fill: #ffab00;
+        }
+        .dot_feed {
+            stroke: #fff;
+            fill: #ffabee;
         }
 
         .focus circle {
@@ -53,6 +62,7 @@
         <option value="-">-</option>
     </select>
 
+
     <hr />
 
     <span id="selectedContext"></span>
@@ -62,10 +72,32 @@
     <div id='vis-container'></div>
 
     <script type="text/javascript">
-        var selectedMachine;
+        var selectedMachine; // id, name, max_rpm, max_cutting_speed
         var selectedTool;
         var selectedMaterial;
         var selectedCuttingSpeed;
+
+        /*var cut_settings = {
+            'tool': {
+                'name': '8mm 3 Flute VHM Aluminum',
+                'diameter': 8.0,
+                'fz_factor_at_one_ae': 1.0,
+                'vc_factor_at_one_ae': 0.75,
+                'flute_length': 19.0,
+                'flute_count': 3
+            },
+            'material': {
+                'name': 'Al MgSi (6060)',
+                'kc_1_1': 830.0,
+                'mc': 0.23
+            },
+            'feed_per_tooth': 0.02,
+            'cutting_speed': 230.0
+        }*/
+        //machine = {
+        //    'max_rpm': 7500,
+        //    'max_cutting_speed': 600.0
+        //}
 
         d3.json("/api/machine/").then((data) => {
             d3.select("#machineSelectButton")
@@ -101,22 +133,71 @@
                 .attr("value", function (d) { return d.id; })
         });
 
+        var fzAdjusted = function (cut_settings, ae) {
+            var ae_factor = Math.min(1, ae / cut_settings.tool.diameter);
+            var fz_factor = 1 - ((1 - cut_settings.tool.fz_factor_at_one_ae) * ae_factor);
+            return cut_settings.feed_per_tooth * fz_factor;
+        }
+
+        var vcAdjusted = function (tool_diameter, tool_vc_factor_at_one_ae, cutting_speed, ae) {
+            ae_factor = Math.min(1, (ae / tool_diameter))
+            vc_factor = 1 - ((1 - tool_vc_factor_at_one_ae) * ae_factor)
+            result = cutting_speed * vc_factor
+            //console.log(result)
+            return result
+        }
+
+        var calculateFeedsAndSpeeds = function (machine, cut_settings, ae_percent) {
+            //console.log(cut_settings)
+            ae = cut_settings.tool.diameter * ae_percent;
+            flute_count = cut_settings.tool.flute_count;
+            feed_per_tooth = fzAdjusted(cut_settings, ae);
+            cutting_speed = vcAdjusted(cut_settings.tool.diameter, cut_settings.tool.vc_factor_at_one_ae, cut_settings.cutting_speed, ae);
+
+            rpm_calculated = (cutting_speed * 1000) / (Math.PI * cut_settings.tool.diameter);
+            feed_calculated = rpm_calculated * feed_per_tooth * flute_count;
+
+            rpm_max = Math.min(rpm_calculated, machine.max_rpm)
+            feed_at_rpm_max = rpm_max * feed_per_tooth * flute_count
+            rpm_final = feed_at_rpm_max / (feed_per_tooth * flute_count)
+            return {
+                "rpm": rpm_final,
+                "feed": feed_at_rpm_max
+            }
+        }
+
 
         var updateChart = function () {
             var margin = { top: 50, right: 50, bottom: 50, left: 50 }
-                , width = window.innerWidth - margin.left - margin.right // Use the window's width 
-                , height = window.innerHeight - margin.top - margin.bottom; // Use the window's height
+                , width = 800 - margin.left - margin.right
+                , height = 600 - margin.top - margin.bottom;
 
-            var n = 51;
-            var xScale = d3.scaleLinear().domain([0, n - 1]).range([0, width]);
-            var yScale = d3.scaleLinear().domain([0, 1]).range([height, 0]);
-            var line = d3.line()
-                .x(function (d, i) { return xScale(i); })
-                .y(function (d) { return yScale(d.y); })
-            //.curve(d3.curveMonotoneX);
+            var aeScale = d3.scaleLinear().domain([0, 1]).range([0, width]);
+            var rpmScale = d3.scaleLinear().domain([0, selectedMachine['max_rpm']]).range([height, 0]);
+            var feedScale = d3.scaleLinear().domain([0, selectedMachine['max_cutting_speed']]).range([height, 0]);
+            var rpmLine = d3.line()
+                .x(function (d, i) {
+                    return aeScale(d.ae);
+                })
+                .y(function (d) {
+                    return rpmScale(d.rpm);
+                });
+            var feedLine = d3.line()
+                .x(function (d, i) {
+                    return aeScale(d.ae);
+                })
+                .y(function (d) {
+                    return feedScale(d.feed);
+                });
 
-            var dataset = d3.range(n).map(function (d) { return { "y": d3.randomUniform(1)() } });
-
+            var dataset = d3.range(0.01, 1.01, 0.01).map(function (d) {
+                v = calculateFeedsAndSpeeds(selectedMachine, selectedCuttingSpeed, d)
+                return {
+                    "ae": d,
+                    "rpm": v.rpm,
+                    "feed": v.feed
+                }
+            });
 
 
             var svg = d3.select("div#vis-container").append("svg")
@@ -128,46 +209,49 @@
             svg.append("g")
                 .attr("class", "x axis")
                 .attr("transform", "translate(0," + height + ")")
-                .call(d3.axisBottom(xScale)) // Create an axis component with d3.axisBottom
+                .call(d3.axisBottom(aeScale)) // Create an axis component with d3.axisBottom
                 // label
                 .append("text").attr("dy", ".75em").attr("y", 25).attr("x", 10).style("text-anchor", "end").text("Ae");
 
             // 4. Call the y axis in a group tag
             svg.append("g")
                 .attr("class", "y axis")
-                .call(d3.axisLeft(yScale))
+                .call(d3.axisLeft(rpmScale))
                 // label
-                .append("text").attr("transform", "rotate(-90)").attr("dy", ".75em").attr("y", -45).style("text-anchor", "end").text("Frequency");
+                .append("text").attr("transform", "rotate(-90)").attr("dy", ".75em").attr("y", -45).style("text-anchor", "end").text("RPM");
+
+            // 4. Call the y axis in a group tag
+            svg.append("g")
+                .attr("class", "y axis")
+                .attr("transform", "translate(" + width + " ,0)")	
+                .call(d3.axisRight(feedScale))
+                // label
+                .append("text").attr("transform", "rotate(-90)").attr("dy", ".75em").attr("y", 40).style("text-anchor", "end").text("Feed");
+
 
             // 9. Append the path, bind the data, and call the line generator 
             svg.append("path")
                 .datum(dataset) // 10. Binds data to the line 
-                .attr("class", "line") // Assign a class for styling 
-                .attr("d", line); // 11. Calls the line generator 
+                .attr("class", "line_rpm") // Assign a class for styling 
+                .attr("d", rpmLine); // 11. Calls the line generator 
 
-            svg.selectAll(".dot")
-                .data(dataset)
-                .enter().append("circle") // Uses the enter().append() method
-                .attr("class", "dot") // Assign a class for styling
-                .attr("cx", function (d, i) { return xScale(i) })
-                .attr("cy", function (d) { return yScale(d.y) })
-                .attr("r", 5)
-                .on("mouseover", function (a, b, c) {
-                    console.log(a)
-                    this.attr('class', 'focus')
-                })
-                .on("mouseout", function () { })
-        }
+            // 9. Append the path, bind the data, and call the line generator 
+            svg.append("path")
+                .datum(dataset) // 10. Binds data to the line 
+                .attr("class", "line_feed") // Assign a class for styling 
+                .attr("d", feedLine); // 11. Calls the line generator 
 
-        var updateDisplay = function () {
-            selectedContext = "Feed per tooth:" + selectedCuttingSpeed['feed_per_tooth'] +
-                " Cutting speed:" + selectedCuttingSpeed['cutting_speed'] +
-                " Machine:" + selectedMachine['name'] +
-                " Tool:" + selectedTool['name']
-            d3.select("#selectedContext").html(selectedContext);
-
-            //updateChart();
-
+            //svg.selectAll(".dot")
+            //    .data(dataset)
+            //    .enter().append("circle") // Uses the enter().append() method
+            //    .attr("class", "dot_rpm") // Assign a class for styling
+            //    .attr("cx", function (d, i) { return aeScale(d.ae) })
+            //    .attr("cy", function (d) { return rpmScale(d.rpm) })
+            //    .attr("r", 5)
+            //    .on("mouseover", function (a, b, c) {
+            //        this.attr('class', 'focus')
+            //    })
+            //    .on("mouseout", function () { })
         }
 
         var loadCuttingSpeeds = function () {
@@ -183,8 +267,10 @@
                 selectedTool = data;
             });
             d3.json("/api/cutting_speed/?tool=" + selectedToolId + "&material=" + selectedMaterialId).then((cutting_speeds) => {
-                selectedCuttingSpeed = cutting_speeds[0];
-                updateDisplay();
+                d3.json("/api/cutting_speed_calculation_data/"+cutting_speeds[0].id+"/").then((data) => {
+                    selectedCuttingSpeed = data
+                    updateChart();
+                });
             });
         }
 
@@ -194,12 +280,6 @@
         d3.select("#toolSelectButton").on("change", function (d) {
             loadCuttingSpeeds();
         });
-
-
-        updateChart();
-
-
-
     </script>
 </body>
 

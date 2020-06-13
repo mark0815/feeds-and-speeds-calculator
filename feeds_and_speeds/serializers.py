@@ -30,3 +30,26 @@ class CuttingSpeedsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CuttingSpeeds
         fields = ['id', 'tool', 'material', 'feed_per_tooth', 'cutting_speed']
+
+
+class MaterialViewSerializer(serializers.Serializer):
+    name = serializers.SerializerMethodField()
+    kc_1_1 = serializers.FloatField()
+    mc = serializers.FloatField()
+
+    def get_name(self, obj):
+        return "%s %s" % (obj.name, obj.material_class.name)
+
+class ToolViewSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    diameter = serializers.FloatField()
+    fz_factor_at_one_ae = serializers.FloatField()
+    vc_factor_at_one_ae = serializers.FloatField()
+    flute_length = serializers.FloatField()
+    flute_count = serializers.FloatField()
+
+class CuttingSpeedsCalculationData(serializers.Serializer):
+    tool = ToolViewSerializer()
+    material = MaterialViewSerializer()
+    feed_per_tooth = serializers.FloatField()
+    cutting_speed = serializers.FloatField()
