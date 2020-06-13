@@ -108,12 +108,6 @@
                 .text(function (d) { return d.name; })
                 .attr("value", function (d) { return d.id; })
         });
-        d3.select("#machineSelectButton").on("change", function () {
-            selectedMachineId = d3.select(this).property('value')
-            d3.json("/api/machine/" + selectedMachineId).then((data) => {
-                selectedMachine = data;
-            });
-        })
         d3.json("/api/material/").then((data) => {
             d3.select("#materialSelectButton")
                 .selectAll('options')
@@ -165,9 +159,11 @@
                 "feed": feed_at_rpm_max
             }
         }
-
-
-        var updateChart = function () {
+        
+        var rpmLine;
+        var feedLine;
+        var dataset = [];
+        createChart = function() {
             var margin = { top: 50, right: 50, bottom: 50, left: 50 }
                 , width = 800 - margin.left - margin.right
                 , height = 600 - margin.top - margin.bottom;
@@ -175,30 +171,20 @@
             var aeScale = d3.scaleLinear().domain([0, 1]).range([0, width]);
             var rpmScale = d3.scaleLinear().domain([0, selectedMachine['max_rpm']]).range([height, 0]);
             var feedScale = d3.scaleLinear().domain([0, selectedMachine['max_cutting_speed']]).range([height, 0]);
-            var rpmLine = d3.line()
+            rpmLine = d3.line()
                 .x(function (d, i) {
                     return aeScale(d.ae);
                 })
                 .y(function (d) {
                     return rpmScale(d.rpm);
                 });
-            var feedLine = d3.line()
+            feedLine = d3.line()
                 .x(function (d, i) {
                     return aeScale(d.ae);
                 })
                 .y(function (d) {
                     return feedScale(d.feed);
                 });
-
-            var dataset = d3.range(0.01, 1.01, 0.01).map(function (d) {
-                v = calculateFeedsAndSpeeds(selectedMachine, selectedCuttingSpeed, d)
-                return {
-                    "ae": d,
-                    "rpm": v.rpm,
-                    "feed": v.feed
-                }
-            });
-
 
             var svg = d3.select("div#vis-container").append("svg")
                 .attr("width", width + margin.left + margin.right)
@@ -228,19 +214,16 @@
                 // label
                 .append("text").attr("transform", "rotate(-90)").attr("dy", ".75em").attr("y", 40).style("text-anchor", "end").text("Feed");
 
-
-            // 9. Append the path, bind the data, and call the line generator 
             svg.append("path")
-                .datum(dataset) // 10. Binds data to the line 
+                //.datum(dataset) // 10. Binds data to the line 
                 .attr("class", "line_rpm") // Assign a class for styling 
-                .attr("d", rpmLine); // 11. Calls the line generator 
+                .attr("d", rpmLine(dataset)); // 11. Calls the line generator 
 
-            // 9. Append the path, bind the data, and call the line generator 
             svg.append("path")
-                .datum(dataset) // 10. Binds data to the line 
+                //.datum(dataset) // 10. Binds data to the line 
                 .attr("class", "line_feed") // Assign a class for styling 
-                .attr("d", feedLine); // 11. Calls the line generator 
-
+                .attr("d", feedLine(dataset)); // 11. Calls the line generator 
+            
             //svg.selectAll(".dot")
             //    .data(dataset)
             //    .enter().append("circle") // Uses the enter().append() method
@@ -252,6 +235,40 @@
             //        this.attr('class', 'focus')
             //    })
             //    .on("mouseout", function () { })
+        }
+
+        var updateChart = function () {
+            var svg = d3.select("div#vis-container").transition();
+
+            dataset = d3.range(0.01, 1.01, 0.01).map(function (d) {
+                v = calculateFeedsAndSpeeds(selectedMachine, selectedCuttingSpeed, d)
+                return {
+                    "ae": d,
+                    "rpm": v.rpm,
+                    "feed": v.feed
+                }
+            });
+
+            svg.select(".line_rpm")   // change the line
+            .duration(750)
+            .attr("d", rpmLine(dataset));
+
+            svg.select(".line_feed")   // change the line
+            .duration(750)
+            .attr("d", feedLine(dataset));
+            
+
+            // 9. Append the path, bind the data, and call the line generator 
+            //svg.append("path")
+            //    .datum(dataset) // 10. Binds data to the line 
+            //    .attr("class", "line_rpm") // Assign a class for styling 
+            //    .attr("d", rpmLine); // 11. Calls the line generator 
+
+            // 9. Append the path, bind the data, and call the line generator 
+            //svg.append("path")
+            //    .datum(dataset) // 10. Binds data to the line 
+            //    .attr("class", "line_feed") // Assign a class for styling 
+            //    .attr("d", feedLine); // 11. Calls the line generator 
         }
 
         var loadCuttingSpeeds = function () {
@@ -274,6 +291,13 @@
             });
         }
 
+        d3.select("#machineSelectButton").on("change", function () {
+            selectedMachineId = d3.select(this).property('value')
+            d3.json("/api/machine/" + selectedMachineId).then((data) => {
+                selectedMachine = data;
+                createChart();
+            });
+        })
         d3.select("#materialSelectButton").on("change", function (d) {
             loadCuttingSpeeds();
         });
