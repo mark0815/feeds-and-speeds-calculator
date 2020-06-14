@@ -41,12 +41,15 @@ class MaterialViewSerializer(serializers.Serializer):
         return "%s %s" % (obj.name, obj.material_class.name)
 
 class ToolViewSerializer(serializers.Serializer):
-    name = serializers.CharField()
+    name = serializers.SerializerMethodField()
     diameter = serializers.FloatField()
     fz_factor_at_one_ae = serializers.FloatField()
     vc_factor_at_one_ae = serializers.FloatField()
     flute_length = serializers.FloatField()
     flute_count = serializers.FloatField()
+
+    def get_name(self, obj):
+        return "%s %s" % (obj.name, obj.vendor.name)
 
 class CuttingSpeedsCalculationData(serializers.Serializer):
     tool = ToolViewSerializer()
