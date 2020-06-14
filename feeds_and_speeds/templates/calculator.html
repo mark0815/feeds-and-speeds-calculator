@@ -47,19 +47,6 @@
             font-size: 120%;
         }
 
-        div.tooltip {
-            position: absolute;
-            text-align: center;
-            width: 60px;
-            height: 28px;
-            padding: 2px;
-            font: 12px sans-serif;
-            background: lightsteelblue;
-            border: 0px;
-            border-radius: 8px;
-            pointer-events: none;
-        }
-
         .max_power_limit {
             stroke: red;
             fill: none;
@@ -91,34 +78,14 @@
 
     <div id='vis-container'></div>
 
+    <div id='tooltip' style='position:absolute;background-color:lightgray;padding:5px'></div>
+
     <script type="text/javascript">
         var selectedMachine; // id, name, max_rpm, max_cutting_speed
         var selectedTool; // id, diameter, flute_length
         var selectedMaterial;
         var selectedCuttingSpeed;
         var selectedAp;
-
-        /*var cut_settings = {
-            'tool': {
-                'name': '8mm 3 Flute VHM Aluminum',
-                'diameter': 8.0,
-                'fz_factor_at_one_ae': 1.0,
-                'vc_factor_at_one_ae': 0.75,
-                'flute_length': 19.0,
-                'flute_count': 3
-            },
-            'material': {
-                'name': 'Al MgSi (6060)',
-                'kc_1_1': 830.0,
-                'mc': 0.23
-            },
-            'feed_per_tooth': 0.02,
-            'cutting_speed': 230.0
-        }*/
-        //machine = {
-        //    'max_rpm': 7500,
-        //    'max_cutting_speed': 600.0
-        //}
 
         d3.json("/api/machine/").then((data) => {
             d3.select("#machineSelectButton")
@@ -159,13 +126,10 @@
         var vcAdjusted = function (tool_diameter, tool_vc_factor_at_one_ae, cutting_speed, ae) {
             ae_factor = Math.min(1, (ae / tool_diameter))
             vc_factor = 1 - ((1 - tool_vc_factor_at_one_ae) * ae_factor)
-            result = cutting_speed * vc_factor
-            //console.log(result)
-            return result
+            return cutting_speed * vc_factor
         }
 
         var calculateFeedsAndSpeeds = function (machine, cut_settings, ae_percent) {
-            //console.log(cut_settings)
             ae = cut_settings.tool.diameter * ae_percent;
             flute_count = cut_settings.tool.flute_count;
             feed_per_tooth = fzAdjusted(cut_settings, ae);
@@ -178,8 +142,8 @@
             feed_at_rpm_max = rpm_max * feed_per_tooth * flute_count
             rpm_final = feed_at_rpm_max / (feed_per_tooth * flute_count)
             return {
-                "rpm": rpm_final,
-                "feed": feed_at_rpm_max
+                "rpm": Math.round(rpm_final),
+                "feed": Math.round(feed_at_rpm_max)
             }
         }
 
@@ -193,8 +157,10 @@
         var rpmLine;
         var feedLine;
         var dataset = [];
+        var tooltip;
+        var tooltipLine;
         createChart = function () {
-
+            tooltip = d3.select('#tooltip');
 
             aeScale = d3.scaleLinear().domain([0, 1]).range([0, width]);
             rpmScale = d3.scaleLinear().domain([0, selectedMachine['max_rpm']]).range([height, 0]);
@@ -214,15 +180,13 @@
                     return feedScale(d.feed);
                 });
 
-            var div = d3.select("body").append("div")
-                .attr("class", "tooltip")
-                .style("opacity", 0);
-
             var svg = d3.select("div#vis-container").append("svg")
                 .attr("width", width + margin.left + margin.right)
                 .attr("height", height + margin.top + margin.bottom)
                 .append("g")
                 .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            tooltipLine = svg.append('line');
 
             svg.append("g")
                 .attr("class", "x axis")
@@ -256,26 +220,33 @@
                 .attr("class", "line_feed") // Assign a class for styling 
                 .attr("d", feedLine(dataset)); // 11. Calls the line generator 
 
-            svg.selectAll(".dot")
-                .data(dataset)
-                .enter().append("circle") // Uses the enter().append() method
-                .attr("class", "dot_rpm") // Assign a class for styling
-                .attr("cx", function (d, i) { return aeScale(d.ae) })
-                .attr("cy", function (d) { return rpmScale(d.rpm) })
-                .attr("r", 5)
-                .on("mouseover", function (a, b, c) {
-                    div.transition()
-                        .duration(200)
-                        .style("opacity", .9);
-                    div.html(formatTime(d.date) + "<br/>" + d.close)
-                        .style("left", (d3.event.pageX) + "px")
-                        .style("top", (d3.event.pageY - 28) + "px");
-                })
-                .on("mouseout", function () {
-                    div.transition()
-                        .duration(500)
-                        .style("opacity", 0);
-                })
+            tipBox = svg.append('rect')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('opacity', 0)
+                .on('mousemove', drawTooltip)
+                .on('mouseout', removeTooltip);
+        }
+
+        function removeTooltip() {
+            if (tooltip) tooltip.style('display', 'none');
+            if (tooltipLine) tooltipLine.attr('stroke', 'none');
+        }
+
+        function drawTooltip() {
+            aeFromCurrentPosition = Math.floor(aeScale.invert(d3.mouse(tipBox.node())[0]) * 100) / 100
+            dataAtCurrentAe = dataset.find(h => h.ae == aeFromCurrentPosition)
+            
+            tooltipLine.attr('stroke', 'black')
+                .attr('x1', aeScale(aeFromCurrentPosition))
+                .attr('x2', aeScale(aeFromCurrentPosition))
+                .attr('y1', 0)
+                .attr('y2', rpmScale(selectedMachine['max_rpm']));
+
+            tooltip.html('ae: ' + dataAtCurrentAe.ae + '<br />rpm: ' + dataAtCurrentAe.rpm + '<br />vc: ' + dataAtCurrentAe.feed)
+                .style('display', 'block')
+                .style('left', d3.event.pageX + 20)
+                .style('top', d3.event.pageY - 20)
         }
 
         var updateChart = function () {
@@ -284,45 +255,38 @@
             dataset = d3.range(0.01, 1.01, 0.01).map(function (d) {
                 v = calculateFeedsAndSpeeds(selectedMachine, selectedCuttingSpeed, d)
                 return {
-                    "ae": d,
+                    "ae": Math.round(d*100)/100,
                     "rpm": v.rpm,
                     "feed": v.feed
                 }
             });
 
             svg.select(".line_rpm")   // change the line
-                .duration(750)
+                .duration(250)
                 .attr("d", rpmLine(dataset));
 
             svg.select(".line_feed")   // change the line
-                .duration(750)
+                .duration(250)
                 .attr("d", feedLine(dataset));
+        }
 
-
-            // 9. Append the path, bind the data, and call the line generator 
-            //svg.append("path")
-            //    .datum(dataset) // 10. Binds data to the line 
-            //    .attr("class", "line_rpm") // Assign a class for styling 
-            //    .attr("d", rpmLine); // 11. Calls the line generator 
-
-            // 9. Append the path, bind the data, and call the line generator 
-            //svg.append("path")
-            //    .datum(dataset) // 10. Binds data to the line 
-            //    .attr("class", "line_feed") // Assign a class for styling 
-            //    .attr("d", feedLine); // 11. Calls the line generator 
+        var calculateMaxAeForAp = function (ap) {
+            return 0.2
         }
 
 
-
+        /**
+         * Update power limit vertical marker
+         */
         var updateMaxPower = function (ap) {
-            var calculated_max_power_ae = 0.5 // TODO
+            var calculated_max_power_ae = calculateMaxAeForAp(ap)
             var svg = d3.select('div#vis-container svg g');
             svg.select("line.max_power_limit").remove();
             svg.append('line')
                 .attr('x1', aeScale(calculated_max_power_ae))
                 .attr('y1', rpmScale(0))
                 .attr('x2', aeScale(calculated_max_power_ae))
-                .attr('y2', rpmScale(7500))
+                .attr('y2', rpmScale(selectedMachine['max_rpm']))
                 .attr('class', 'max_power_limit');
         }
 
